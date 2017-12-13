@@ -1,8 +1,10 @@
-module Raft.Tests
+module Raft.LeaderElectionTests
 
 open System
 open Xunit
 open Raft
+
+#nowarn "0025"
 
 let a = node "A"
 let b = node "B"
@@ -23,7 +25,7 @@ let ``Leader election should work in happy case`` () =
         |> List.map (fun (Become(_, node, [schedule])) -> (node, schedule))
         |> List.map (fun (node, schedule) ->
             let (Follower { Self = self }) = node
-            let expected = Schedule(self + "-hbtimeout", testSettings.HeartbeatTimeout, self, BecomeCandidate 1)
+            let expected = Schedule(self + "-hbtimeout", After testSettings.HeartbeatTimeout, self, BecomeCandidate 1)
             schedule |> equals expected
             node)
 
@@ -32,15 +34,15 @@ let ``Leader election should work in happy case`` () =
     let (Candidate(_, voters)) = a2
     let expectedReqs = addresses |> List.map (fun n -> Send(n, RequestVote(1, "A")))
 
-    timeout |> equals (Schedule("A-eltimeout", testSettings.ElectionTimeout, "A", BecomeCandidate 2))
+    timeout |> equals (Schedule("A-eltimeout", After testSettings.ElectionTimeout, "A", BecomeCandidate 2))
     reqs    |> equals expectedReqs
     voters  |> Set.toList |> equals ["A"]
 
     // Step 3: let B & C respond with their votes
-    let (Become(_, b2, [sendB])) = receive b1 <| BecomeCandidate 1
+    let (Become(_, b2, [sendB])) = receive b1 <| RequestVote(1, "A")
     let voteB = Vote(1, "B", "A")
     sendB |> equals (Send("A", voteB))
-    let (Become(_, c2, [sendC])) = receive c1 <| BecomeCandidate 1
+    let (Become(_, c2, [sendC])) = receive c1 <| RequestVote(1, "A")
     let voteC = Vote(1, "C", "A")
     sendC |> equals (Send("A", voteC))
 
@@ -48,7 +50,6 @@ let ``Leader election should work in happy case`` () =
     let (Become(_, a3, [])) = receive a2 voteB
     let (Become(_, a4, heartbeats)) = receive a3 voteC
     a4 |> equals (Leader(a4.State, 0, Map.empty))
-    
 
 [<Fact>]
 let ``Leader election should be retried after leader got unresponsive`` () = ()

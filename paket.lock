@@ -1,12 +1,19 @@
 RESTRICTION: >= net45
 NUGET
   remote: https://www.nuget.org/api/v2
+    Argu (3.2)
+    Expecto (4.1)
+      Argu (>= 3.2)
+      FSharp.Core (>= 3.1.2.5)
+      Mono.Cecil (>= 0.9.6.4)
     FSharp.Core (4.0.0.1) - redirects: force
     Microsoft.NETCore.Platforms (2.0.1) - restriction: || (&& (>= monoandroid) (>= net45) (< netstandard1.0)) (&& (>= monotouch) (>= net45)) (&& (>= net45) (>= netcoreapp2.0)) (&& (>= net45) (< netstandard1.0) (>= portable-net451+win81+wpa81)) (&& (>= net45) (< netstandard1.3) (>= wpa81)) (&& (>= net45) (< portable-net45+win8+wpa81)) (&& (>= net45) (< portable-net451+win81+wpa81)) (&& (>= net45) (>= uap10.0)) (&& (>= net45) (>= xamarinios)) (&& (>= net45) (>= xamarinmac)) (&& (>= net45) (>= xamarintvos)) (&& (>= net45) (>= xamarinwatchos)) (&& (>= net451) (< net452) (< netstandard1.3)) (&& (< net452) (>= net46) (< netstandard1.4)) (&& (< net452) (>= net461))
+    Mono.Cecil (0.9.6.4)
     NETStandard.Library (2.0.1) - restriction: && (>= net45) (< net452)
       Microsoft.NETCore.Platforms (>= 1.1)
       System.Runtime.InteropServices.RuntimeInformation (>= 4.3) - restriction: || (&& (>= net45) (< netstandard1.0) (>= portable-net451+win81+wpa81)) (&& (>= net45) (< netstandard1.3) (>= wpa81)) (&& (>= net45) (< portable-net451+win81+wpa81)) (&& (>= net45) (>= uap10.0)) (&& (>= net451) (< netstandard1.3)) (&& (>= net46) (< netstandard1.4))
     System.Runtime.InteropServices.RuntimeInformation (4.3) - restriction: || (&& (>= net45) (< netstandard1.0) (>= portable-net451+win81+wpa81)) (&& (>= net45) (< netstandard1.3) (>= wpa81)) (&& (>= net45) (< portable-net451+win81+wpa81)) (&& (>= net45) (>= uap10.0)) (&& (>= net451) (< net452) (< netstandard1.3)) (&& (< net452) (>= net46) (< netstandard1.4))
+    Unquote (3.2)
     xunit (2.3.1)
       xunit.analyzers (>= 0.7)
       xunit.assert (2.3.1)
@@ -24,6 +31,7 @@ NUGET
     xunit.extensibility.execution (2.3.1)
       NETStandard.Library (>= 1.6.1) - restriction: && (>= net45) (< net452)
       xunit.extensibility.core (2.3.1)
+    xunit.runner.visualstudio (2.3.1)
 
 GROUP Build
 NUGET
