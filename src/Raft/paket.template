@@ -1,0 +1,25 @@
+type project
+title
+    Raft
+owners
+    Bartosz Sypytkowski
+authors 
+    Bartosz Sypytkowski
+projectUrl
+    https://github.com/Horusiath/Raft
+iconUrl
+    https://raw.githubusercontent.com/Horusiath/Raft/master/docs/files/img/logo.png
+licenseUrl
+    https://github.com/Horusiath/Raft/blob/master/LICENSE.txt
+requireLicenseAcceptance
+    false
+copyright
+    Copyright 2015
+tags
+    fsharp
+summary
+    Summary not set
+description
+    Description not set
+
+
