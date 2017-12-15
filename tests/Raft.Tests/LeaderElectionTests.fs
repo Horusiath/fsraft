@@ -15,6 +15,14 @@ let e = node "E"
 let all = [a;b;c;d;e] 
 let addresses = ["A";"B";"C";"D";"E"]
 
+let update state =
+    function
+    | Set state' -> state'
+    | Inc value  -> state + value
+    | Dec value  -> state - value
+
+let receive = Raft.receive update
+
 [<Fact>]
 let ``Leader election should work in happy case`` () = 
     // Step 1: initialize nodes - it should request for heartbeat timeout (msg: BecomeCandidate)

@@ -73,6 +73,7 @@
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
     <Compile Include="Prolog.fs" />
+    <Compile Include="VirtualTime.fs" />
     <Compile Include="LeaderElectionTests.fs" />
     <None Include="paket.references" />
     <Content Include="App.config" />

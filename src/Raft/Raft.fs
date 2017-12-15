@@ -17,27 +17,27 @@ type TimePart =
     | Repeat of init:TimeSpan * interval:TimeSpan
 
 /// Result of a receiver processing logic.
-type Reaction<'S,'M> = 
+type Reaction<'s,'m> = 
     /// A positive response from the receiver, with the next receiver (or the same)
     /// used for message processing, a new actor state as result of current receiver
     /// and a list of side effect performed as output of current processing.
-    | Become of receive:Receive<'S,'M> * state:'S * effects:Effect<'M> list
+    | Become of receive:Receive<'s,'m> * state:'s * effects:Effect<'m> list
     /// A negative response, used when current combination of receiver/state/message
     /// doesn't explicitly define any behavior.
-    | Unhandled of state:'S * message:'M
+    | Unhandled of state:'s * message:'m
 
 /// A receiver function used to impement a free protocols.
-and Receive<'S,'M> = 'S -> 'M -> Reaction<'S, 'M>
+and Receive<'s,'m> = 's -> 'm -> Reaction<'s, 'm>
 
 /// Possible side effects produced by receiver. A protocol interpreter must define
 /// those effect as real operations in order to make protocol work.
-and Effect<'M> = 
+and Effect<'m> = 
     /// Send a message to the receiver, potentially on a different machine.
-    | Send of receiver:NodeId * message:'M
+    | Send of receiver:NodeId * message:'m
     /// Schedule or reshedule a message to be send to the receive at some 
     /// point in time. In case of Raft protocol, a sub-millisecond precision 
     /// is required.
-    | Schedule of key:string * after:TimePart * receiver:NodeId * message:'M
+    | Schedule of key:string * after:TimePart * receiver:NodeId * message:'m
     /// Unschedule previously scheduled message (or ignore if it was not found).
     | Unschedule of key:string
     
@@ -48,27 +48,27 @@ type Settings =
 /// Describes current election from a particular node perspective.
 type Election = { Epoch: int; Elected: NodeId }
 
-type ReplicationStatus<'a> =
-    { Entry: 'a; TxId: int; ReplyTo: NodeId; Remaining: Set<NodeId> }
+type ReplicationProgress<'op> =
+    { Entries: 'op list; Id: int; ReplyTo: NodeId; Remaining: Set<NodeId> }
 
 /// Internal state of the node with all data necessary to participate in Raft
 /// consensus protocol.
-type State<'a> =
-    { Settings: Settings           // Raft cluster settings. Better to be the same for every node.
-      Self: NodeId                 // Unique node identifier in scope of the current cluster.
-      KnownNodes: Set<NodeId>      // List of nodes known to the present node.
-      Election: Election           // Info about the latest known election.
-      Entries: Map<string, 'a> }   // Entries used for Raft log replication.
+type State<'s> =
+    { Settings: Settings      // Raft cluster settings. Better to be the same for every node.
+      Self: NodeId            // Unique node identifier in scope of the current cluster.
+      KnownNodes: Set<NodeId> // List of nodes known to the present node.
+      Election: Election      // Info about the latest known election.
+      ManagedState: 's }      // Entries used for Raft log replication.
 
 /// Contains info about Raft node state with internal details. Some Raft roles
 /// may define some extra data necessary to perform their duties.
-type NodeState<'a> =
+type NodeState<'s, 'op> =
     /// Initial state of the node or follower with well-known Leader.
-    | Follower of state:State<'a>
+    | Follower of state:State<'s>
     /// Candidate for the new leader. Has it's vote counter.
-    | Candidate of state:State<'a> * voters:Set<NodeId>
+    | Candidate of state:State<'s> * voters:Set<NodeId>
     /// Current leader of Raft cluster.
-    | Leader of state:State<'a> * clock:int * replication:Map<string, ReplicationStatus<'a>>
+    | Leader of state:State<'s> * clock:int * replication:Map<int, ReplicationProgress<'op>>
     member x.State =
         match x with
         | Follower state     -> state
@@ -76,7 +76,7 @@ type NodeState<'a> =
         | Leader(state,_,_)  -> state
       
 /// Messages used for communication between nodes to establish a Raft protocol.
-type Message<'a> =
+type Message<'op> =
     | Init of knownNodes: Set<NodeId>
     /// Follower which receives candidate call will become candidate 
     /// and starts a next election epoch.
@@ -86,14 +86,13 @@ type Message<'a> =
     /// Followers may respond with the node id about which candidate they've
     /// choosen in which epoch.
     | Vote of epoch:int * voter:NodeId * candidate:NodeId
-    /// Hearbeat send between Leader and its Followers.
-    | Heartbeat of epoch:int * leader:NodeId
+    | Heartbeat of epoch:int * voter:NodeId 
     // log replication
-    | SetEntry of key:string * entry:'a * replyTo:NodeId
-    | SetEntryAck of key:string * entry:'a
-    | ReplicateEntry of key:string * entry:'a
-    | ConfirmReplicate of key:string * follower:NodeId
-    | CommitEntry of key:string
+    | AppendEntries of replyTo:NodeId * ops:'op list
+    | Replicate of id:int * ops:'op list
+    | ReplicateAck of id:int * follower:NodeId
+    | CommitEntry of id:int 
+    | EntriesAppended
 
 /// Checks if current set represents majority among total known set of nodes.
 let isMajority current total = 
@@ -107,12 +106,14 @@ let scheduleHeartbeatTimeout state =
 let scheduleElectionTimeout state =
     Schedule(state.Self + "-eltimeout", After state.Settings.ElectionTimeout, state.Self, BecomeCandidate(state.Election.Epoch+1))
    
-let rec receive behavior message =
+let apply update state ops = ops |> List.fold update state
+
+let rec receive update behavior message =
     match behavior, message with
     // init follower state
     | Follower state, Init nodes ->
         let heartbeatTimeout = scheduleHeartbeatTimeout state
-        Become(receive, Follower { state with KnownNodes = nodes }, [heartbeatTimeout])
+        Become(receive update, Follower { state with KnownNodes = nodes }, [heartbeatTimeout])
 
     // Follower was nominated to candidate for the next epoch. It nominates itself
     // and request all known nodes for their votes. Also schedules timeout after which
@@ -126,7 +127,7 @@ let rec receive behavior message =
         let state' = { state with Election = election }
         let voters = Set.singleton state'.Self
         let timeout = scheduleElectionTimeout state'
-        Become(receive, Candidate(state', voters), timeout::requestVotes)
+        Become(receive update, Candidate(state', voters), timeout::requestVotes)
     
     // Follower was requested to vote on another candidate for the next epoch.
     // Older epoch has higher precedence, so no matter what follower will always to vote
@@ -134,14 +135,14 @@ let rec receive behavior message =
     | Follower state, RequestVote(epoch, candidate) when epoch > state.Election.Epoch ->
         let votedFor = { Epoch = epoch; Elected = candidate }
         let vote = Send(candidate, Vote(epoch, state.Self, candidate))
-        Become(receive, Follower { state with Election = votedFor }, [vote])
+        Become(receive update, Follower { state with Election = votedFor }, [vote])
 
     // Follower was requested to vote on candidate in current epoch. However
     // this also means, that it has already given it's vote for another candidate.
     // So it responds with existing vote.
     | Follower state, RequestVote(epoch, candidate) ->
         let alreadyVoted = Send(candidate, Vote(epoch, state.Self, state.Election.Elected))
-        Become(receive, behavior, [alreadyVoted])
+        Become(receive update, behavior, [alreadyVoted])
 
     // Follower received heartbeat from Leader. It will reshedule heartbeat and respond
     // back to the Leader.
@@ -149,7 +150,7 @@ let rec receive behavior message =
         let election = { Epoch = epoch; Elected = leader }
         let timeout = Schedule(state.Self+"-candidating", After state.Settings.HeartbeatTimeout, state.Self, BecomeCandidate(state.Election.Epoch + 1))
         let hearbeat = Send(leader, Heartbeat(epoch, state.Self))
-        Become(receive, Follower { state with Election = election}, [hearbeat; timeout])
+        Become(receive update, Follower { state with Election = election}, [hearbeat; timeout])
         
     // Candidate was requested to vote on another candidate in higher epoch, which 
     // takes precedence over him. It becomes new follower and gives its vote on the
@@ -157,13 +158,13 @@ let rec receive behavior message =
     | Candidate(state, _), RequestVote(epoch, candidate) when epoch > state.Election.Epoch ->
         let votedFor = { Epoch = epoch; Elected = candidate }
         let vote = Send(candidate, Vote(epoch, state.Self, candidate))
-        Become(receive, Follower { state with Election = votedFor }, [vote])
+        Become(receive update, Follower { state with Election = votedFor }, [vote])
 
     // Candidate was requested to vote on another candidate the same of lover epoch.
     // It responds, that it already voted on himself.
     | Candidate(state, _), RequestVote(_, otherCandidate) ->
         let alreadyVotedForSelf = Send(otherCandidate, Vote(state.Election.Epoch, state.Self, state.Self))
-        Become(receive, behavior, [alreadyVotedForSelf])
+        Become(receive update, behavior, [alreadyVotedForSelf])
     
     // Candidate received vote from one of its followers, incrementing voters count.
     // If it reached majority, it becomes Leader and starts heartbeating others.
@@ -179,10 +180,10 @@ let rec receive behavior message =
                 state.KnownNodes
                 |> Seq.map scheduleHeartbeat
                 |> Seq.toList
-            Become(receive, Leader(state, 0, Map.empty), schedules)
+            Become(receive update, Leader(state, 0, Map.empty), schedules)
         else
             // candidate is still waiting for remaining votes
-            Become(receive, Candidate(state, voters'), [])
+            Become(receive update, Candidate(state, voters'), [])
 
     // Candidate received heartbeat from higher or equal epoch. It means it had loose
     // the election, so it becomes follower instead.
@@ -190,37 +191,37 @@ let rec receive behavior message =
         let election = { Epoch = epoch; Elected = leader }
         let timeout = Schedule(state.Self+"-candidating", After state.Settings.HeartbeatTimeout, state.Self, BecomeCandidate(state.Election.Epoch + 1))
         let hearbeat = Send(leader, Heartbeat(epoch, state.Self))
-        Become(receive, Follower { state with Election = election }, [hearbeat; timeout])
+        Become(receive update, Follower { state with Election = election }, [hearbeat; timeout])
         
 
     | Leader _, Heartbeat _->
-        Become(receive, behavior, [])
+        Become(receive update, behavior, [])
 
     // Leader received new set entry request
-    | Leader(state, clock, replications), SetEntry(key, entry, replyTo) ->
+    | Leader(state, clock, replications), AppendEntries(replyTo, ops) ->
         let clock' = clock + 1
-        let msg = ReplicateEntry(key, entry)
+        let replicate = Replicate(clock',ops)
         let replication =
             state.KnownNodes
-            |> Seq.map (fun node -> Send(node, msg))
+            |> Seq.map (fun node -> Send(node, replicate))
             |> Seq.toList
-        let replications' = Map.add key { Entry = entry; TxId = clock'; ReplyTo = replyTo; Remaining = state.KnownNodes; } replications
-        let entries = Map.add key entry state.Entries
-        Become(receive, Leader({ state with Entries = entries }, clock', replications'), replication)
+        let replications' = Map.add clock' { Entries = ops; Id = clock'; ReplyTo = replyTo; Remaining = state.KnownNodes; } replications
+        let state' = apply update state.ManagedState ops
+        Become(receive update, Leader({ state with ManagedState = state' }, clock', replications'), replication)
     
     // Leader received confirmed replication response from follower
-    | Leader(state, clock, replications), ConfirmReplicate(key, follower) ->
-        let progress = Map.find key replications
+    | Leader(state, clock, replications), ReplicateAck(id, follower) ->
+        let progress = Map.find id replications
         let remaining = Set.remove follower progress.Remaining
         if not <| isMajority remaining state.KnownNodes
         then
             // replication reached majority of the nodes
-            let reply = Send (progress.ReplyTo, SetEntryAck(key, progress.Entry))
-            let replications' = Map.remove key replications
-            Become(receive, Leader(state, clock, replications'), [reply])
+            let reply = Send (progress.ReplyTo, EntriesAppended)
+            let replications' = Map.remove id replications
+            Become(receive update, Leader(state, clock, replications'), [reply])
         else
             // there are still nodes waiting for replication
-            let replications' = Map.add key { progress with Remaining = remaining } replications
-            Become(receive, Leader(state, clock, replications'), [])
+            let replications' = Map.add id { progress with Remaining = remaining } replications
+            Become(receive update, Leader(state, clock, replications'), [])
 
     | state, msg -> Unhandled(state,msg)
