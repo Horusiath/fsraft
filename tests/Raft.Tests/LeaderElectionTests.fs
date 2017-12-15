@@ -32,7 +32,7 @@ let ``Leader election should work in happy case`` () =
         |> List.map (fun node -> receive node init)
         |> List.map (fun (Become(_, node, [schedule])) -> (node, schedule))
         |> List.map (fun (node, schedule) ->
-            let (Follower { Self = self }) = node
+            let (Follower({ Self = self }, _) = node
             let expected = Schedule(self + "-hbtimeout", After testSettings.HeartbeatTimeout, self, BecomeCandidate 1)
             schedule |> equals expected
             node)
