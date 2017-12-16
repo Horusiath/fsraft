@@ -72,11 +72,11 @@ module Timeline =
 module TestConductor =
 
     let initState settings id =
-        { Settings = settings
-          Self = id
-          KnownNodes = Set.empty
-          Election = { Epoch = 0; Elected = Unchecked.defaultof<NodeId> } 
-          ManagedState = 0 } |> Follower
+        Follower({ Settings = settings
+                   Self = id
+                   KnownNodes = Set.empty
+                   Epoch = 0
+                   ManagedState = 0 }, id)
         
     let actionDelay = TimeSpan.FromMilliseconds 1.
     

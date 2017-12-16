@@ -1,4 +1,4 @@
-module Raft.LeaderElectionTests
+module LeaderElectionTests
 
 open System
 open Xunit
@@ -6,14 +6,6 @@ open Raft
 
 #nowarn "0025"
 
-let a = node "A"
-let b = node "B"
-let c = node "C"
-let d = node "D"
-let e = node "E"
-
-let all = [a;b;c;d;e] 
-let addresses = ["A";"B";"C";"D";"E"]
 
 let update state =
     function
@@ -25,6 +17,15 @@ let receive = Raft.receive update
 
 [<Fact>]
 let ``Leader election should work in happy case`` () = 
+    let a = follower "" "A"
+    let b = follower "" "B"
+    let c = follower "" "C"
+    let d = follower "" "D"
+    let e = follower "" "E"
+
+    let all = [a;b;c;d;e] 
+    let addresses = ["A";"B";"C";"D";"E"]
+
     // Step 1: initialize nodes - it should request for heartbeat timeout (msg: BecomeCandidate)
     let init = Init (Set.ofList addresses)
     let [a1;b1;c1;d1;e1] =
@@ -32,7 +33,7 @@ let ``Leader election should work in happy case`` () =
         |> List.map (fun node -> receive node init)
         |> List.map (fun (Become(_, node, [schedule])) -> (node, schedule))
         |> List.map (fun (node, schedule) ->
-            let (Follower({ Self = self }, _) = node
+            let (Follower({ Self = self }, _)) = node
             let expected = Schedule(self + "-hbtimeout", After testSettings.HeartbeatTimeout, self, BecomeCandidate 1)
             schedule |> equals expected
             node)
@@ -57,7 +58,7 @@ let ``Leader election should work in happy case`` () =
     // Step 4: A receives majority of votes, becomes the leader
     let (Become(_, a3, [])) = receive a2 voteB
     let (Become(_, a4, heartbeats)) = receive a3 voteC
-    a4 |> equals (Leader(a4.State, 0, Map.empty))
+    a4 |> equals (Leader(a4.State, Map.empty))
 
 [<Fact>]
 let ``Leader election should be retried after leader got unresponsive`` () = ()

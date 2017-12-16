@@ -75,6 +75,7 @@
     <Compile Include="Prolog.fs" />
     <Compile Include="VirtualTime.fs" />
     <Compile Include="LeaderElectionTests.fs" />
+    <Compile Include="LogReplicationTests.fs" />
     <None Include="paket.references" />
     <Content Include="App.config" />
   </ItemGroup>

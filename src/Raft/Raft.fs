@@ -103,10 +103,10 @@ let isMajority current total =
 let inline isMinority current total = isMajority current total |> not
 
 let inline scheduleHeartbeatTimeout state =
-    Schedule(state.Self + "-hbtimeout", After state.Settings.HeartbeatTimeout, state.Self, BecomeCandidate(state.Election.Epoch+1))
+    Schedule(state.Self + "-hbtimeout", After state.Settings.HeartbeatTimeout, state.Self, BecomeCandidate(state.Epoch+1))
 
 let inline scheduleElectionTimeout state =
-    Schedule(state.Self + "-eltimeout", After state.Settings.ElectionTimeout, state.Self, BecomeCandidate(state.Election.Epoch+1))
+    Schedule(state.Self + "-eltimeout", After state.Settings.ElectionTimeout, state.Self, BecomeCandidate(state.Epoch+1))
    
 let apply update state ops = ops |> List.fold update state
 
