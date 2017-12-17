@@ -5,7 +5,7 @@ open Raft
 
 type TimeEvent<'e> =
     { Timestamp: DateTime
-      Emitter: NodeId
+      Emitter: string
       Event: 'e }
     
 /// Virtual representation of events occuring as time passes.
@@ -69,10 +69,3 @@ module Timeline =
     /// Returns the next pack of events that happens right after specified threshold.
     let inline next after (timeline: Timeline<_>) = timeline.Next after
     
-type TestConductor = 
-    { Nodes: NodeState<'a,'op>
-      Timeline: }
-
-module TestConductor =
-
-    let init 
