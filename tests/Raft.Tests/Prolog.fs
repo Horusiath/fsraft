@@ -16,7 +16,7 @@ let follower leader self =
                   Self = self
                   KnownNodes = Set.empty
                   Epoch = 0
-                  ManagedState = 0 }
+                  UserState = 0 }
     Follower(state, leader)
 
 let candidate voters self = 
@@ -24,7 +24,7 @@ let candidate voters self =
                   Self = self
                   KnownNodes = Set.empty
                   Epoch = 1
-                  ManagedState = 0 }
+                  UserState = 0 }
     Candidate(state, voters)
 
 let leader self = 
@@ -32,7 +32,7 @@ let leader self =
                   Self = self
                   KnownNodes = Set.empty
                   Epoch = 1
-                  ManagedState = 0 }
+                  UserState = 0 }
     Leader(state, Map.empty)
 
 let inline flip f a b = f b a

@@ -13,7 +13,7 @@ let update state =
     | Inc value  -> state + value
     | Dec value  -> state - value
 
-let receive = Raft.receive update
+let receive = Raft.raft update
 
 [<Fact>]
 let ``Leader election should work in happy case`` () = 
@@ -59,6 +59,7 @@ let ``Leader election should work in happy case`` () =
     let (Become(_, a3, [])) = receive a2 voteB
     let (Become(_, a4, heartbeats)) = receive a3 voteC
     a4 |> equals (Leader(a4.State, Map.empty))
+    
 
 [<Fact>]
 let ``Leader election should be retried after leader got unresponsive`` () = ()

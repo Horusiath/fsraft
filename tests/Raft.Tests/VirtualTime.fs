@@ -69,14 +69,10 @@ module Timeline =
     /// Returns the next pack of events that happens right after specified threshold.
     let inline next after (timeline: Timeline<_>) = timeline.Next after
     
+type TestConductor = 
+    { Nodes: NodeState<'a,'op>
+      Timeline: }
+
 module TestConductor =
 
-    let initState settings id =
-        Follower({ Settings = settings
-                   Self = id
-                   KnownNodes = Set.empty
-                   Epoch = 0
-                   ManagedState = 0 }, id)
-        
-    let actionDelay = TimeSpan.FromMilliseconds 1.
-    
+    let init 

@@ -12,10 +12,10 @@ let update state =
     | Inc value  -> state + value
     | Dec value  -> state - value
     
-let receive = Raft.receive update
+let receive = Raft.raft update
 
 [<Fact>]
-let ``Leader election should work in happy case`` () = 
+let ``Log replication should be confirmed after it reached majority of nodes`` () = 
     let a = leader "A"
     let b = follower "A" "B"
     let c = follower "A" "C"
@@ -24,5 +24,7 @@ let ``Leader election should work in happy case`` () =
 
     let all = [a;b;c;d;e] 
     let addresses = ["A";"B";"C";"D";"E"]
+
+
 
     ()
